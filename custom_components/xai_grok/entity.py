@@ -1,15 +1,20 @@
 """Base entities for xAI Grok."""
 
+import base64
 from collections.abc import AsyncGenerator, AsyncIterable, Callable, Iterable
 import json
+from mimetypes import guess_type
+from pathlib import Path
 import re
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components import conversation
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr, llm
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.json import json_dumps
+from homeassistant.util import slugify
 
 from .const import (
     CONF_CHAT_MODEL,
@@ -76,6 +81,30 @@ def _format_tool(
         "description": tool.description or "",
         "parameters": _convert_schema(tool.parameters, custom_serializer),
     }
+
+
+async def _async_image_parts(
+    hass: HomeAssistant, files: list[tuple[Path, str | None]]
+) -> list[dict[str, Any]]:
+    """Encode image attachments as input parts for a user message."""
+
+    def encode() -> list[dict[str, Any]]:
+        parts: list[dict[str, Any]] = []
+        for path, mime_type in files:
+            if not path.exists():
+                raise HomeAssistantError(f"`{path}` does not exist")
+            mime_type = mime_type or guess_type(path)[0]
+            if not mime_type or not mime_type.startswith("image/"):
+                raise HomeAssistantError(
+                    f"Only images can be sent to Grok, `{path}` is not an image"
+                )
+            data = base64.b64encode(path.read_bytes()).decode()
+            parts.append(
+                {"type": "input_image", "image_url": f"data:{mime_type};base64,{data}"}
+            )
+        return parts
+
+    return await hass.async_add_executor_job(encode)
 
 
 def _convert_content(
@@ -216,8 +245,13 @@ class XaiBaseEntity(Entity):
 class XaiLLMEntity(XaiBaseEntity):
     """Entity that generates responses with a Grok chat model."""
 
-    async def _async_handle_chat_log(self, chat_log: conversation.ChatLog) -> None:
-        """Generate an answer for the chat log."""
+    async def _async_handle_chat_log(
+        self,
+        chat_log: conversation.ChatLog,
+        structure_name: str | None = None,
+        structure: Any | None = None,
+    ) -> None:
+        """Generate an answer for the chat log, as JSON if a structure is given."""
         options = self.entry.options
         model = options.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL)
 
@@ -257,6 +291,32 @@ class XaiLLMEntity(XaiBaseEntity):
             payload["include"] = ["no_inline_citations"]
             if messages and messages[0].get("role") == "system":
                 messages[0]["content"] += f"\n{SEARCH_PROMPT}"
+
+        # Attachments belong to the message that is being answered
+        last_content = chat_log.content[-1]
+        if last_content.role == "user" and last_content.attachments:
+            messages[-1]["content"] = [
+                {"type": "input_text", "text": messages[-1]["content"]},
+                *await _async_image_parts(
+                    self.hass,
+                    [(a.path, a.mime_type) for a in last_content.attachments],
+                ),
+            ]
+
+        if structure is not None and structure_name:
+            payload["text"] = {
+                "format": {
+                    "type": "json_schema",
+                    "name": slugify(structure_name),
+                    "schema": _convert_schema(
+                        structure,
+                        chat_log.llm_api.custom_serializer
+                        if chat_log.llm_api
+                        else llm.selector_serializer,
+                    ),
+                    "strict": True,
+                }
+            }
 
         client = self.entry.runtime_data
 

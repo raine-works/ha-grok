@@ -26,6 +26,7 @@ class FakeXai:
         self.response_scripts: list[list[dict[str, Any]]] = []
         self.response_requests: list[dict[str, Any]] = []
         self.tts_requests: list[dict[str, Any]] = []
+        self.image_requests: list[dict[str, Any]] = []
         self.tts_connections: list[dict[str, str]] = []
         self.tts_text: list[str] = []
         self.stt_connections: list[dict[str, str]] = []
@@ -38,6 +39,7 @@ class FakeXai:
         app.router.add_get("/v1/tts/voices", self._voices)
         app.router.add_post("/v1/responses", self._responses)
         app.router.add_post("/v1/tts", self._tts_rest)
+        app.router.add_post("/v1/images/generations", self._images)
         app.router.add_get("/v1/tts", self._tts_ws)
         app.router.add_get("/v1/stt", self._stt_ws)
         return app
@@ -96,6 +98,20 @@ class FakeXai:
         self._check_auth(request)
         self.tts_requests.append(await request.json())
         return web.Response(body=b"rest-audio", content_type="audio/mpeg")
+
+    async def _images(self, request: web.Request) -> web.Response:
+        self._check_auth(request)
+        self.image_requests.append(await request.json())
+        return web.json_response(
+            {
+                "data": [
+                    {
+                        "b64_json": base64.b64encode(b"\xff\xd8jpeg").decode(),
+                        "mime_type": "image/jpeg",
+                    }
+                ]
+            }
+        )
 
     async def _tts_ws(self, request: web.Request) -> web.WebSocketResponse:
         self._check_auth(request)

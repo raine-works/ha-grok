@@ -133,6 +133,23 @@ class XaiClient:
         except (aiohttp.ClientError, TimeoutError) as err:
             raise XaiError(f"Error talking to xAI: {err}") from err
 
+    async def async_generate_image(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Generate an image and return the first result."""
+        try:
+            async with self._session.post(
+                f"{API_BASE}/images/generations",
+                json=body,
+                headers=self._headers,
+                timeout=aiohttp.ClientTimeout(total=120),
+            ) as resp:
+                await self._raise_for_status(resp)
+                data = await resp.json()
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise XaiError(f"Error talking to xAI: {err}") from err
+        if not data.get("data"):
+            raise XaiError("xAI returned no image")
+        return data["data"][0]
+
     async def _ws_connect(
         self, path: str, params: dict[str, str]
     ) -> aiohttp.ClientWebSocketResponse:

@@ -19,6 +19,7 @@ CONF_TTS_LATENCY = "tts_latency"
 # Non-reasoning models start answering soonest, which matters most for voice.
 DEFAULT_CHAT_MODEL = "grok-4.20-0309-non-reasoning"
 DEFAULT_REASONING_EFFORT = "low"
+IMAGE_MODEL = "grok-imagine-image-2.0"
 DEFAULT_VOICE = "eve"
 DEFAULT_TTS_SPEED = 1.0
 DEFAULT_TTS_LATENCY = "1"

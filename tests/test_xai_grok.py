@@ -3,14 +3,16 @@
 import asyncio
 from collections.abc import AsyncGenerator
 import json
+from pathlib import Path
+from unittest.mock import patch
 
-from homeassistant.components import conversation, stt
+from homeassistant.components import ai_task, conversation, media_source, stt
 from homeassistant.components.tts import TTSAudioRequest
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.const import CONF_API_KEY, CONF_LLM_HASS_API
 from homeassistant.core import Context, HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import entity_registry as er, llm
+from homeassistant.helpers import chat_session, entity_registry as er, llm
 import probatio as vol
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -349,3 +351,85 @@ async def test_stt_streams(
 def test_supports_reasoning_effort(model: str, expected: bool) -> None:
     """Only grok-4.5 and newer take reasoning.effort."""
     assert _supports_reasoning_effort(model) is expected
+
+
+async def test_ai_task_generate_data(
+    hass: HomeAssistant,
+    fake_xai: FakeXai,
+    setup_entry: MockConfigEntry,
+    tmp_path: Path,
+) -> None:
+    """Data tasks return text, or parsed JSON for a structure, and send images."""
+    entity_id = _entity_id(hass, "ai_task", f"{setup_entry.entry_id}_ai_task")
+
+    fake_xai.response_scripts.append(_text_script("A short ", "poem."))
+    result = await ai_task.async_generate_data(
+        hass, task_name="Poem", entity_id=entity_id, instructions="Write a poem"
+    )
+    assert result.data == "A short poem."
+    assert "text" not in fake_xai.response_requests[0]
+
+    image = tmp_path / "door.png"
+    image.write_bytes(b"png-bytes")
+    fake_xai.response_scripts.append(_text_script('{"open": ', "true}"))
+    with patch(
+        "homeassistant.components.media_source.async_resolve_media",
+        return_value=media_source.PlayMedia(
+            url="http://example/door.png", mime_type="image/png", path=image
+        ),
+    ):
+        result = await ai_task.async_generate_data(
+            hass,
+            task_name="Door state",
+            entity_id=entity_id,
+            instructions="Is the door open?",
+            structure=vol.Schema({vol.Required("open"): bool}),
+            attachments=[
+                {"media_content_id": "media-source://media/door.png"},
+            ],
+        )
+    assert result.data == {"open": True}
+
+    request = fake_xai.response_requests[1]
+    text_format = request["text"]["format"]
+    assert text_format["type"] == "json_schema"
+    assert text_format["name"] == "door_state"
+    assert text_format["strict"] is True
+    assert text_format["schema"]["properties"] == {"open": {"type": "boolean"}}
+    assert text_format["schema"]["required"] == ["open"]
+    assert request["input"][-1] == {
+        "role": "user",
+        "content": [
+            {"type": "input_text", "text": "Is the door open?"},
+            {"type": "input_image", "image_url": "data:image/png;base64,cG5nLWJ5dGVz"},
+        ],
+    }
+
+
+async def test_ai_task_generate_image(
+    hass: HomeAssistant, fake_xai: FakeXai, setup_entry: MockConfigEntry
+) -> None:
+    """Image tasks use the image generation endpoint."""
+    entity = hass.data["ai_task"].get_entity(
+        _entity_id(hass, "ai_task", f"{setup_entry.entry_id}_ai_task")
+    )
+    assert entity.supported_features & ai_task.AITaskEntityFeature.GENERATE_IMAGE
+
+    with (
+        chat_session.async_get_chat_session(hass) as session,
+        conversation.async_get_chat_log(hass, session) as chat_log,
+    ):
+        result = await entity._async_generate_image(
+            ai_task.GenImageTask(name="Cat", instructions="A cat"), chat_log
+        )
+
+    assert result.image_data == b"\xff\xd8jpeg"
+    assert result.mime_type == "image/jpeg"
+    assert result.model == "grok-imagine-image-2.0"
+    assert fake_xai.image_requests == [
+        {
+            "model": "grok-imagine-image-2.0",
+            "prompt": "A cat",
+            "response_format": "b64_json",
+        }
+    ]

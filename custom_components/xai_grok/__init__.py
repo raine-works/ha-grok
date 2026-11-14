@@ -9,7 +9,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .client import XaiAuthError, XaiClient, XaiError
 from .const import FALLBACK_VOICES, LOGGER
 
-PLATFORMS = (Platform.CONVERSATION, Platform.STT, Platform.TTS)
+PLATFORMS = (Platform.AI_TASK, Platform.CONVERSATION, Platform.STT, Platform.TTS)
 
 type XaiConfigEntry = ConfigEntry[XaiClient]
 

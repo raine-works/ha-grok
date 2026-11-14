@@ -13,14 +13,17 @@ from collections.abc import AsyncGenerator
 import os
 from pathlib import Path
 import socket
+import struct
 import time
+from unittest.mock import patch
+import zlib
 
 from aiohttp.resolver import ThreadedResolver
-from homeassistant.components import conversation, stt
+from homeassistant.components import ai_task, conversation, media_source, stt
 from homeassistant.components.tts import TTSAudioRequest
 from homeassistant.const import CONF_API_KEY, CONF_LLM_HASS_API
 from homeassistant.core import Context, HomeAssistant
-from homeassistant.helpers import entity_registry as er, llm
+from homeassistant.helpers import chat_session, entity_registry as er, llm
 import probatio as vol
 import pytest
 from pytest_homeassistant_custom_component import plugins as ha_plugins
@@ -339,3 +342,95 @@ async def test_web_search_is_dynamic(
     assert [item for item in seen if "search" in item]
     assert "http" not in speech
     assert "2026" in speech
+
+
+def _solid_png(red: int, green: int, blue: int, size: int = 64) -> bytes:
+    """Return a single-colour PNG."""
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        body = kind + data
+        return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body))
+
+    row = b"\x00" + bytes((red, green, blue)) * size
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 2, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(row * size))
+        + chunk(b"IEND", b"")
+    )
+
+
+@pytest.mark.parametrize("model", MODELS)
+async def test_ai_task_data(
+    hass: HomeAssistant, live_entry, tmp_path: Path, model: str
+) -> None:
+    """Structured output is honoured and an attached image is understood."""
+    hass.config_entries.async_update_entry(
+        live_entry, options={**live_entry.options, CONF_CHAT_MODEL: model}
+    )
+    await hass.async_block_till_done()
+    entity_id = er.async_get(hass).async_get_entity_id(
+        "ai_task", DOMAIN, f"{live_entry.entry_id}_ai_task"
+    )
+
+    start = time.monotonic()
+    result = await ai_task.async_generate_data(
+        hass,
+        task_name="Shopping list",
+        entity_id=entity_id,
+        instructions="We are out of milk and eggs, and have plenty of rice.",
+        structure=vol.Schema(
+            {
+                vol.Required("to_buy"): [str],
+                vol.Required("item_count"): int,
+                vol.Optional("note"): str,
+            }
+        ),
+    )
+    print(f"\n[{model}] structured {time.monotonic() - start:.2f}s: {result.data}")
+    assert sorted(item.lower() for item in result.data["to_buy"]) == ["eggs", "milk"]
+    assert result.data["item_count"] == 2
+
+    image = tmp_path / "colour.png"
+    image.write_bytes(_solid_png(255, 0, 0))
+    start = time.monotonic()
+    with patch(
+        "homeassistant.components.media_source.async_resolve_media",
+        return_value=media_source.PlayMedia(
+            url="http://example/colour.png", mime_type="image/png", path=image
+        ),
+    ):
+        result = await ai_task.async_generate_data(
+            hass,
+            task_name="Colour",
+            entity_id=entity_id,
+            instructions="What single colour fills this image? Answer in one word.",
+            attachments=[{"media_content_id": "media-source://media/colour.png"}],
+        )
+    print(f"[{model}] image {time.monotonic() - start:.2f}s: {result.data!r}")
+    assert "red" in result.data.lower()
+
+
+async def test_ai_task_image(hass: HomeAssistant, live_entry) -> None:
+    """An image is generated. Costs a few cents per run."""
+    entity = hass.data["ai_task"].get_entity(
+        er.async_get(hass).async_get_entity_id(
+            "ai_task", DOMAIN, f"{live_entry.entry_id}_ai_task"
+        )
+    )
+    start = time.monotonic()
+    with (
+        chat_session.async_get_chat_session(hass) as session,
+        conversation.async_get_chat_log(hass, session) as chat_log,
+    ):
+        result = await entity._async_generate_image(
+            ai_task.GenImageTask(name="Icon", instructions="A red apple on white"),
+            chat_log,
+        )
+    print(
+        f"\nimage {time.monotonic() - start:.2f}s: {len(result.image_data):,} bytes, "
+        f"{result.mime_type}, revised prompt {result.revised_prompt!r}"
+    )
+    assert result.mime_type in ("image/jpeg", "image/png")
+    assert result.image_data[:2] == b"\xff\xd8" or result.image_data[:4] == b"\x89PNG"
+    assert len(result.image_data) > 10_000

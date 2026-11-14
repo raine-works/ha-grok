@@ -3,7 +3,8 @@
 An **unofficial** [Home Assistant](https://www.home-assistant.io/) integration for
 [xAI](https://x.ai)'s Grok, from [raine-works](https://github.com/raine-works),
 built for a fast voice assistant. It provides a conversation agent, speech to
-text and text to speech, and every stage streams.
+text and text to speech, and every stage streams. It also provides an AI Task
+entity for automations.
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
 [![License](https://img.shields.io/badge/License-MIT-lightgrey.svg?style=for-the-badge)](LICENSE)
@@ -69,7 +70,18 @@ Open the integration and choose **Configure**.
 | Speech speed | 0.7 to 1.5. |
 | Speech latency optimization | Higher starts speaking sooner, at some cost in audio quality where chunks join. |
 
-## Notes
+## AI Task
+
+The *Grok AI Task* entity works with the `ai_task.generate_data` and
+`ai_task.generate_image` actions, and can be chosen as the default under
+**Settings → System → General → AI suggestions**.
+
+- **Generate data** uses the model selected in the options. With a `structure`
+  the answer comes back as data in that shape. Image attachments (camera
+  snapshots, media) are sent along; other file types are rejected.
+- **Generate image** uses `grok-imagine-image-2.0`, which xAI bills per image.
+  Generating from attached images is not supported.
+
 
 - Home Assistant only starts speaking mid-response once the response passes
   60 characters; shorter ones are synthesized when the text is complete.
@@ -77,8 +89,8 @@ Open the integration and choose **Configure**.
   on demand. Later ones find it already open.
 - Streaming speech to text is billed by xAI at a higher rate than batch
   ($0.20 against $0.10 per hour of audio at the time of writing).
-- Images and other attachments are not sent to the model, and there is no
-  AI Task entity.
+- Images attached in a conversation are not sent to the model; use the AI Task
+  entity for those.
 
 ## Development
 
