@@ -5,15 +5,15 @@ import json
 from typing import Any
 
 from aiohttp import WSMsgType, web
+from homeassistant.const import CONF_API_KEY
+from homeassistant.core import HomeAssistant
+from homeassistant.setup import async_setup_component
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.xai_grok import client as client_module
 from custom_components.xai_grok.config_flow import DEFAULT_OPTIONS
 from custom_components.xai_grok.const import DOMAIN
-from homeassistant.const import CONF_API_KEY
-from homeassistant.core import HomeAssistant
-from homeassistant.setup import async_setup_component
 
 API_KEY = "xai-test-key"
 
@@ -45,7 +45,17 @@ class FakeXai:
     @staticmethod
     def _check_auth(request: web.Request) -> None:
         if request.headers.get("Authorization") != f"Bearer {API_KEY}":
-            raise web.HTTPUnauthorized(text="bad key")
+            # The real API reports a wrong key as 400, not 401
+            raise web.HTTPBadRequest(
+                text=json.dumps(
+                    {
+                        "code": "invalid-argument",
+                        "error": "Incorrect API key provided. You can obtain "
+                        "an API key from https://console.x.ai.",
+                    }
+                ),
+                content_type="application/json",
+            )
 
     async def _models(self, request: web.Request) -> web.Response:
         self._check_auth(request)
@@ -114,20 +124,26 @@ class FakeXai:
             if msg.type is WSMsgType.BINARY:
                 self.stt_audio += msg.data
             elif json.loads(msg.data)["type"] == "audio.done":
+                # As observed live: each utterance arrives as chunk-final
+                # results, then once more whole, and the final event is empty
+                for text, speech_final in (
+                    ("Turn on the lights.", False),
+                    ("Turn on the lights.", True),
+                    ("Then lock", False),
+                    ("the door.", False),
+                    ("Then lock the door.", True),
+                    ("Thanks.", False),
+                ):
+                    await ws.send_json(
+                        {
+                            "type": "transcript.partial",
+                            "text": text,
+                            "is_final": True,
+                            "speech_final": speech_final,
+                        }
+                    )
                 await ws.send_json(
-                    {
-                        "type": "transcript.partial",
-                        "text": "turn on the lights",
-                        "is_final": True,
-                        "speech_final": True,
-                    }
-                )
-                await ws.send_json(
-                    {
-                        "type": "transcript.done",
-                        "text": "turn on the lights",
-                        "duration": 1.0,
-                    }
+                    {"type": "transcript.done", "text": "", "duration": 1.0}
                 )
                 break
         return ws

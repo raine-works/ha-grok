@@ -1,0 +1,12 @@
+# Runs the integration inside Home Assistant. The plugin pins the Home Assistant
+# version; the packages below it are requirements of the conversation, stt, tts
+# and assist_pipeline components, pinned to what that version asks for.
+pytest-homeassistant-custom-component==0.13.375
+gazetteer-matcher==1.1.0
+ha-ffmpeg==3.2.2
+hassil==3.12.1
+home-assistant-intents==2026.10.6
+mutagen==1.48.1
+pymicro-vad==1.0.1
+pyspeex-noise==1.0.2
+ruff

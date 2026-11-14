@@ -16,19 +16,19 @@ import socket
 import time
 
 from aiohttp.resolver import ThreadedResolver
-import probatio as vol
-import pytest
-import pytest_socket
-from pytest_homeassistant_custom_component import plugins as ha_plugins
-from pytest_homeassistant_custom_component.common import MockConfigEntry
-
-from custom_components.xai_grok.config_flow import DEFAULT_OPTIONS
-from custom_components.xai_grok.const import CONF_CHAT_MODEL, DOMAIN
 from homeassistant.components import conversation, stt
 from homeassistant.components.tts import TTSAudioRequest
 from homeassistant.const import CONF_API_KEY, CONF_LLM_HASS_API
 from homeassistant.core import Context, HomeAssistant
 from homeassistant.helpers import entity_registry as er, llm
+import probatio as vol
+import pytest
+from pytest_homeassistant_custom_component import plugins as ha_plugins
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+import pytest_socket
+
+from custom_components.xai_grok.config_flow import DEFAULT_OPTIONS
+from custom_components.xai_grok.const import CONF_CHAT_MODEL, CONF_WEB_SEARCH, DOMAIN
 
 
 def _api_key() -> str | None:
@@ -282,4 +282,60 @@ async def test_stt_stream(hass: HomeAssistant, live_entry) -> None:
         f"{len(pcm) / 32000:.1f}s of audio ended: {result.text!r}"
     )
     assert result.result == stt.SpeechResultState.SUCCESS
-    assert "kitchen" in result.text.lower()
+    assert result.text == "Turn on the kitchen lights."
+
+
+@pytest.mark.parametrize("model", MODELS)
+async def test_web_search_is_dynamic(
+    hass: HomeAssistant, live_entry, model: str
+) -> None:
+    """With web search enabled, the model searches only when the question needs it.
+
+    Costs more than the other checks: each search is billed by xAI.
+    """
+    hass.config_entries.async_update_entry(
+        live_entry,
+        options={**live_entry.options, CONF_CHAT_MODEL: model, CONF_WEB_SEARCH: True},
+    )
+    await hass.async_block_till_done()
+    agent_id = er.async_get(hass).async_get_entity_id(
+        "conversation", DOMAIN, live_entry.entry_id
+    )
+    client = live_entry.runtime_data
+    stream_response = client.async_stream_response
+    items: list[str] = []
+
+    async def recording_stream(payload):
+        async for event in stream_response(payload):
+            if event["type"] == "response.output_item.done":
+                items.append(event["item"]["type"])
+            yield event
+
+    client.async_stream_response = recording_stream
+
+    async def ask(text: str) -> tuple[str, list[str], float]:
+        items.clear()
+        start = time.monotonic()
+        result = await conversation.async_converse(
+            hass, text, None, Context(), agent_id=agent_id
+        )
+        speech = result.response.speech["plain"]["speech"]
+        elapsed = time.monotonic() - start
+        print(f"\n[{model}] {text!r}\n  {elapsed:.2f}s {items}\n  {speech!r}")
+        return speech, list(items), elapsed
+
+    speech, seen, _ = await ask("What is seven times six? Answer with the number.")
+    assert "42" in speech
+    assert not [item for item in seen if "search" in item]
+
+    EchoTool.calls.clear()
+    speech, seen, _ = await ask("Call the echo tool with the text 'ping'.")
+    assert EchoTool.calls == ["ping"]
+    assert not [item for item in seen if "search" in item]
+
+    speech, seen, _ = await ask(
+        "What is the latest stable release of Home Assistant Core? Look it up."
+    )
+    assert [item for item in seen if "search" in item]
+    assert "http" not in speech
+    assert "2026" in speech

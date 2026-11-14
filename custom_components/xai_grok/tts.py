@@ -9,7 +9,6 @@ import re
 from typing import Any
 
 import aiohttp
-
 from homeassistant.components.tts import (
     TextToSpeechEntity,
     TTSAudioRequest,

@@ -6,7 +6,6 @@ import json
 from typing import Any
 
 import aiohttp
-
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 
@@ -54,7 +53,8 @@ class XaiClient:
         if resp.status < 400:
             return
         body = (await resp.text())[:500]
-        if resp.status in (401, 403):
+        # xAI answers a wrong key with 400 rather than 401
+        if resp.status in (401, 403) or "Incorrect API key" in body:
             raise XaiAuthError(f"xAI rejected the API key ({resp.status}): {body}")
         raise XaiError(f"xAI API error {resp.status}: {body}")
 
@@ -84,7 +84,10 @@ class XaiClient:
         """Return the built-in TTS voices."""
         data = await self._get_json("/tts/voices")
         return [
-            {"voice_id": voice["voice_id"], "name": voice.get("name", voice["voice_id"])}
+            {
+                "voice_id": voice["voice_id"],
+                "name": voice.get("name", voice["voice_id"]),
+            }
             for voice in data.get("voices", [])
         ]
 
@@ -141,6 +144,8 @@ class XaiClient:
         except aiohttp.WSServerHandshakeError as err:
             if err.status in (401, 403):
                 raise XaiAuthError(f"xAI rejected the API key ({err.status})") from err
+            # The handshake error has no body, and a wrong key is reported as
+            # 400 like any bad parameter; setup has already verified the key.
             raise XaiError(
                 f"xAI refused the {path} connection ({err.status}): {err.message}"
             ) from err

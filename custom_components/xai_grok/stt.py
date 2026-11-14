@@ -4,7 +4,6 @@ from collections.abc import AsyncIterable
 import json
 
 import aiohttp
-
 from homeassistant.components import stt
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -157,7 +156,9 @@ class XaiSTTEntity(stt.SpeechToTextEntity, XaiBaseEntity):
         self, ws: aiohttp.ClientWebSocketResponse, stream: AsyncIterable[bytes]
     ) -> str:
         """Send the audio stream and return the final transcript."""
-        finals: list[str] = []
+        # A speech-final result repeats the chunk-final results of its utterance
+        utterances: list[str] = []
+        chunks: list[str] = []
 
         async def _next_event() -> dict:
             msg = await ws.receive(timeout=RECEIVE_TIMEOUT)
@@ -180,6 +181,14 @@ class XaiSTTEntity(stt.SpeechToTextEntity, XaiBaseEntity):
         while True:
             event = await _next_event()
             if event["type"] == "transcript.done":
-                return (event.get("text") or " ".join(finals)).strip()
+                text = " ".join(part for part in (*utterances, *chunks) if part)
+                # In practice this is empty; the docs describe it as the transcript
+                if remainder := (event.get("text") or "").strip():
+                    text = remainder if text in remainder else f"{text} {remainder}"
+                return text.strip()
             if event["type"] == "transcript.partial" and event.get("is_final"):
-                finals.append(event.get("text", ""))
+                if event.get("speech_final"):
+                    utterances.append(event.get("text", "").strip())
+                    chunks.clear()
+                else:
+                    chunks.append(event.get("text", "").strip())

@@ -4,6 +4,13 @@ import asyncio
 from collections.abc import AsyncGenerator
 import json
 
+from homeassistant.components import conversation, stt
+from homeassistant.components.tts import TTSAudioRequest
+from homeassistant.config_entries import SOURCE_USER
+from homeassistant.const import CONF_API_KEY, CONF_LLM_HASS_API
+from homeassistant.core import Context, HomeAssistant
+from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import entity_registry as er, llm
 import probatio as vol
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -17,13 +24,6 @@ from custom_components.xai_grok.const import (
     DOMAIN,
 )
 from custom_components.xai_grok.entity import _supports_reasoning_effort
-from homeassistant.components import conversation, stt
-from homeassistant.components.tts import TTSAudioRequest
-from homeassistant.config_entries import SOURCE_USER
-from homeassistant.const import CONF_API_KEY, CONF_LLM_HASS_API
-from homeassistant.core import Context, HomeAssistant
-from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import entity_registry as er, llm
 
 from .conftest import API_KEY, FakeXai
 
@@ -69,7 +69,10 @@ class EchoAPI(llm.API):
     async def async_get_api_instance(self, llm_context):
         """Return the instance."""
         return llm.APIInstance(
-            api=self, api_prompt="Use echo.", llm_context=llm_context, tools=[EchoTool()]
+            api=self,
+            api_prompt="Use echo.",
+            llm_context=llm_context,
+            tools=[EchoTool()],
         )
 
 
@@ -193,11 +196,10 @@ async def test_conversation_tool_call_and_reasoning(
     assert first["reasoning"] == {"effort": "low"}
     assert first["tools"][0]["type"] == "function"
     assert first["tools"][0]["name"] == "echo"
-    assert first["tools"][0]["parameters"]["properties"] == {
-        "text": {"type": "string"}
-    }
+    assert first["tools"][0]["parameters"]["properties"] == {"text": {"type": "string"}}
     assert first["tools"][-1] == {"type": "web_search"}
-    assert "do not include citations" in first["input"][0]["content"]
+    assert first["include"] == ["no_inline_citations"]
+    assert "without links" in first["input"][0]["content"]
 
     assert second["input"][-3:-1] == [
         reasoning,
@@ -277,9 +279,7 @@ async def test_tts_streams_and_prewarms(
     async def nothing() -> AsyncGenerator[str]:
         yield "  "
 
-    response = await entity.async_stream_tts_audio(
-        TTSAudioRequest("de", {}, nothing())
-    )
+    response = await entity.async_stream_tts_audio(TTSAudioRequest("de", {}, nothing()))
     assert [chunk async for chunk in response.data_gen] == []
     assert fake_xai.tts_connections[-1]["language"] == "de"
     assert fake_xai.tts_connections[-1]["voice"] == "eve"
@@ -327,7 +327,7 @@ async def test_stt_streams(
     )
 
     assert result.result == stt.SpeechResultState.SUCCESS
-    assert result.text == "turn on the lights"
+    assert result.text == "Turn on the lights. Then lock the door. Thanks."
     assert fake_xai.stt_audio == b"\x01\x02\x03\x04"
     assert fake_xai.stt_connections == [
         {"sample_rate": "16000", "encoding": "pcm", "language": "en", "format": "true"}

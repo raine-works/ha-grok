@@ -48,8 +48,10 @@ except ImportError:
 # Max number of back and forth with the LLM to generate a response
 MAX_TOOL_ITERATIONS = 10
 
-NO_CITATIONS_PROMPT = (
-    "When you search, do not include citations, links or URLs in your answer."
+# Non-reasoning models tend to answer a search with a long, formatted report
+SEARCH_PROMPT = (
+    "When you search, give the answer in one or two plain-text sentences, "
+    "without links, markdown or lists."
 )
 
 
@@ -250,12 +252,11 @@ class XaiLLMEntity(XaiBaseEntity):
         if tools:
             payload["tools"] = tools
 
-        if (
-            (options.get(CONF_WEB_SEARCH) or options.get(CONF_X_SEARCH))
-            and messages
-            and messages[0].get("role") == "system"
-        ):
-            messages[0]["content"] += f"\n{NO_CITATIONS_PROMPT}"
+        if options.get(CONF_WEB_SEARCH) or options.get(CONF_X_SEARCH):
+            # Keeps [[1]](url) links out of the text, which would be read aloud
+            payload["include"] = ["no_inline_citations"]
+            if messages and messages[0].get("role") == "system":
+                messages[0]["content"] += f"\n{SEARCH_PROMPT}"
 
         client = self.entry.runtime_data
 

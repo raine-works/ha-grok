@@ -1,4 +1,14 @@
 __pycache__/
+*.py[cod]
 .venv/
+venv/
+.DS_Store
+.mypy_cache/
+.ruff_cache/
 .pytest_cache/
+*.log
+# never commit the API key used by the live checks
 .env
+
+# personal Claude Code settings
+.claude/settings.local.json

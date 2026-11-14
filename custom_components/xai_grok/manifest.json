@@ -2,13 +2,13 @@
   "domain": "xai_grok",
   "name": "xAI Grok",
   "after_dependencies": ["assist_pipeline", "intent"],
-  "codeowners": [],
+  "codeowners": ["@raine-works"],
   "config_flow": true,
   "dependencies": ["conversation"],
-  "documentation": "https://github.com/raineworks/ha-grok",
+  "documentation": "https://github.com/raine-works/ha-grok",
   "integration_type": "service",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/raineworks/ha-grok/issues",
+  "issue_tracker": "https://github.com/raine-works/ha-grok/issues",
   "requirements": [],
   "version": "0.1.0"
 }
