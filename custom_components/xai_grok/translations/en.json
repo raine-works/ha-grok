@@ -1,0 +1,65 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "data": {
+          "api_key": "API key"
+        },
+        "data_description": {
+          "api_key": "Create one at console.x.ai. Enable Voice access on the key to use speech to text and text to speech."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect",
+      "invalid_auth": "Invalid API key",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This API key is already configured",
+      "reauth_successful": "Re-authentication was successful"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "prompt": "Instructions",
+          "llm_hass_api": "Control Home Assistant",
+          "chat_model": "Model",
+          "reasoning_effort": "Reasoning effort",
+          "web_search": "Web search",
+          "x_search": "X search",
+          "voice": "Voice",
+          "tts_speed": "Speech speed",
+          "tts_latency": "Speech latency optimization"
+        },
+        "data_description": {
+          "prompt": "Instruct how Grok should respond. This can be a template.",
+          "chat_model": "Non-reasoning models start answering soonest, which suits voice best.",
+          "reasoning_effort": "Only used by models that support it (grok-4.5 and newer). Lower is faster.",
+          "web_search": "Let Grok search the web for current information. Answers that search take longer.",
+          "x_search": "Let Grok search posts on X.",
+          "voice": "Default voice. A voice assistant can override it. Custom voice IDs are accepted.",
+          "tts_latency": "Higher levels start speaking sooner, at some cost in audio quality where chunks join."
+        }
+      }
+    }
+  },
+  "selector": {
+    "reasoning_effort": {
+      "options": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High"
+      }
+    },
+    "tts_latency": {
+      "options": {
+        "0": "Off (best quality)",
+        "1": "Balanced",
+        "2": "Fastest"
+      }
+    }
+  }
+}
