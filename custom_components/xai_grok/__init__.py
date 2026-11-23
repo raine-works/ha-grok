@@ -9,8 +9,12 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .client import XaiAuthError, XaiClient, XaiError
 from .const import FALLBACK_VOICES, LOGGER
 
+#: The platforms each config entry sets up.
 PLATFORMS = (Platform.AI_TASK, Platform.CONVERSATION, Platform.STT, Platform.TTS)
 
+#: The integration's config entry. Once set up, its `runtime_data` is the
+#: `XaiClient` created in `async_setup_entry`, with the model and voice lists
+#: loaded; it isn't set while the entry isn't loaded.
 type XaiConfigEntry = ConfigEntry[XaiClient]
 
 
