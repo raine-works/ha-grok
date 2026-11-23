@@ -1,0 +1,33 @@
+# Claude reviews every pull request against the rules, and answers replies to its comments. The workflow is Raineworks', in
+# raine-works/agents (.github/workflows/code-review.yml): this file only calls it, and comes from the raineworks-base skill's
+# templates/workflows/code-review.yml. Change the workflow there, for every repository at once; here, only its inputs
+# (with:). The Base rules check moves the pin when the shared workflows change.
+name: Code review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+  actions: read
+
+jobs:
+  code-review:
+    name: Code review
+    uses: raine-works/agents/.github/workflows/code-review.yml@bcc3f92307e34338be03ec7f6a243c3435604800 # raine-works/agents master
+    secrets: inherit
+    with:
+      focus: |
+        - Credentials: the xAI API key (`CONF_API_KEY`, the `Authorization` header) is never logged, put in an error message, a diagnostic or a test fixture; xAI response bodies are truncated before they reach an error.
+        - The event loop is never blocked: all I/O goes through Home Assistant's shared aiohttp session (`client.py`), and CPU-bound work such as audio encoding runs in the executor.
+        - Streaming correctness: SSE and WebSocket streams (conversation, STT, TTS) are always closed, cancelled and cleaned up on error, timeout or unload, including the pre-opened TTS connection.
+        - Config entry lifecycle: setup raises `ConfigEntryAuthFailed` for a rejected key and `ConfigEntryNotReady` for other API errors, unload cleans up everything, a changed option reloads the entry, and a change to stored data bumps the flow's `VERSION` with a migration.
+        - Config flow: the user and reauth steps validate the key, show errors through translated keys in `translations/en.json`, and never leak the key.
+        - Chat log and tool handling in `entity.py`: the chat log stays the source of truth, nothing is stored at xAI, and tool calls and results round-trip correctly.
+        - `manifest.json`: `version` is bumped for a release (the Release workflow tags `v<version>` from it), `requirements` stay pinned, and hassfest and HACS validation still pass.
+        - Tests: new entities, options and failure paths have tests against the local stand-in API in `tests/conftest.py`; ruff check and format pass; docs in `docs/` match the behaviour.
