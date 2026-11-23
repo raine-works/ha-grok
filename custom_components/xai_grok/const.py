@@ -7,9 +7,11 @@ DOMAIN = "xai_grok"
 #: The integration's logger.
 LOGGER = logging.getLogger(__package__)
 
-#: Base URL of xAI's REST API (chat, models, voices, speech to text and images).
+#: Base URL of xAI's REST API (models, voices, chat responses, text to speech and
+#: images).
 API_BASE = "https://api.x.ai/v1"
-#: Base URL of xAI's WebSocket API, used for streaming text to speech.
+#: Base URL of xAI's WebSocket API, used for streaming speech to text and text to
+#: speech.
 WS_BASE = "wss://api.x.ai/v1"
 
 #: Option key: the chat model used by the conversation agent and AI Task.
