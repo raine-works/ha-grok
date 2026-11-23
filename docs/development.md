@@ -20,4 +20,6 @@ The tests run the integration inside Home Assistant against a local stand-in for
 
 - The Test workflow runs ruff and pytest on pushes to `master` and on pull requests.
 - The Validate workflow runs hassfest and the Marketplace repository checks.
+- The Issue to PR workflow has Claude turn an issue opened by the owner, one labelled `claude`, or one the owner (or a collaborator) comments `@claude` on, into a pull request. Before it works, `.github/actions/setup` installs what the Test workflow does (Python 3.14 and `requirements-test.txt`), and it may run only ruff and pytest; change those with the Test workflow.
+- The Claude workflow answers `@claude` in a pull request's comment or review, there or by changing its branch. It may run the same commands as Issue to PR.
 - The Release workflow runs after Test passes on a push to `master`. If the `version` in `custom_components/xai_grok/manifest.json` has no release yet, it creates the GitHub release `v<version>` with generated notes. To release, bump the version and push.
