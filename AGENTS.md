@@ -30,9 +30,9 @@ to text, text to speech and an AI Task entity, all streaming. It has no Python d
 - Ruff config is in `pyproject.toml` (line length 88, `E W F I B UP SIM C4`, imports sorted within sections).
 - **A release is a version bump:** `release.yaml` runs after `Test` passes on a push to `master` and, when
   `version` in `custom_components/xai_grok/manifest.json` has no release yet, creates `v<version>`. Bump it in the
-  pull request that should release; never tag by hand.
+  pull request that should release.
 - `requirements-test.txt` pins the test packages to what the pinned Home Assistant asks for, and `ruff` to the version CI
-  installs; every line is pinned with `==`.
+  installs.
 
 ### Rules the code follows
 
@@ -40,4 +40,4 @@ to text, text to speech and an AI Task entity, all streaming. It has no Python d
 - Setup raises `ConfigEntryAuthFailed` for a rejected key and `ConfigEntryNotReady` for other API errors; options
   changes reload the entry. xAI answers a wrong key with 400 as well as 401, which `client.py` treats as an auth error.
 - The API key is only ever sent in the `Authorization` header; error bodies from xAI are truncated to 500 characters.
-- Live tests in `tests/test_live.py` cost real money: never make them required, and never put a key in the repository.
+- Live tests in `tests/test_live.py` cost real money: never make them required.
