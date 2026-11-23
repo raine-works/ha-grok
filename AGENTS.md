@@ -31,8 +31,8 @@ to text, text to speech and an AI Task entity, all streaming. It has no Python d
 - **A release is a version bump:** `release.yaml` runs after `Test` passes on a push to `master` and, when
   `version` in `custom_components/xai_grok/manifest.json` has no release yet, creates `v<version>`. Bump it in the
   pull request that should release; never tag by hand.
-- `requirements-test.txt` pins the test packages to what the pinned Home Assistant asks for (`ruff` is the one
-  unpinned line).
+- `requirements-test.txt` pins the test packages to what the pinned Home Assistant asks for, and `ruff` to the version CI
+  installs; every line is pinned with `==`.
 
 ### Rules the code follows
 
