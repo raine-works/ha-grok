@@ -28,9 +28,9 @@ to text, text to speech and an AI Task entity, all streaming. It has no Python d
   requirements-test.txt`, then `ruff check .`, `ruff format --check .` and `python -m pytest`. CI (`test.yaml`, the
   workflow named `Test`) runs the same; `validate.yaml` runs hassfest and HACS validation.
 - Ruff config is in `pyproject.toml` (line length 88, `E W F I B UP SIM C4`, imports sorted within sections).
-- **A release is a version bump:** `release.yaml` runs after `Test` passes on a push to `master` and, when
-  `version` in `custom_components/xai_grok/manifest.json` has no release yet, creates `v<version>`. Bump it in the
-  pull request that should release.
+- **A release is merging the release pull request:** `release-pr.yml` (Raineworks' shared Release pull request) keeps one pull request, `Release v<version>`, open on `master` with the next version: major for a breaking change (`type!:`), minor for a `feat`, patch for anything else that ships (a change to `custom_components/`). Merging it
+  bumps `version` in `custom_components/xai_grok/manifest.json`, and `release.yaml` creates `v<version>` once `Test`
+  passes. Never bump the version by hand.
 - `requirements-test.txt` pins the test packages to what the pinned Home Assistant asks for, and `ruff` to the version CI
   installs.
 
