@@ -54,6 +54,8 @@ try:
 except ImportError:
     import voluptuous as vol
 
+#: Options a new entry starts with, and the defaults the options form falls back to
+#: for any option an entry doesn't have yet.
 DEFAULT_OPTIONS = {
     CONF_PROMPT: llm.DEFAULT_INSTRUCTIONS_PROMPT,
     CONF_LLM_HASS_API: [llm.LLM_API_ASSIST],
@@ -66,6 +68,8 @@ DEFAULT_OPTIONS = {
     CONF_TTS_LATENCY: DEFAULT_TTS_LATENCY,
 }
 
+#: Form for adding the integration and for reauthentication: the xAI API key, in a
+#: password field.
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_API_KEY): TextSelector(

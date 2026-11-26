@@ -13,14 +13,18 @@ from .client import XaiError
 from .const import LOGGER
 from .entity import XaiBaseEntity
 
+#: No limit on concurrent requests to the entity (0): each transcription is its own
+#: WebSocket to xAI, so they don't need to be serialized.
 PARALLEL_UPDATES = 0
 
+#: Seconds to wait for each message from xAI on the speech to text WebSocket before
+#: the transcription fails.
 RECEIVE_TIMEOUT = 15
 
-# Languages for which xAI can write numbers, currency and units as digits
+#: Languages for which xAI can write numbers, currency and units as digits.
 FORMAT_LANGUAGES = {"ar", "zh", "en", "fr", "de", "ja", "pt", "ru", "es", "sv", "vi"}
 
-# Regional codes xAI accepts as-is; everything else is sent as the base code
+#: Regional codes xAI accepts as-is; everything else is sent as the base code.
 REGIONAL_LANGUAGES = {"es-ES", "pt-PT", "ar-AE", "ar-SA"}
 
 
