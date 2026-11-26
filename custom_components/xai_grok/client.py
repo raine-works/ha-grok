@@ -11,11 +11,18 @@ from homeassistant.exceptions import HomeAssistantError
 
 from .const import API_BASE, LOGGER, WS_BASE
 
+#: Timeout for short REST requests (the model and voice lists): 30 seconds for the
+#: whole request, including reading the body.
 REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=30)
-# Reasoning models can stay silent for a while before the first event
+#: Timeout for a streamed chat response: no overall limit, 10 seconds to connect
+#: and up to 300 seconds between reads, since reasoning models can stay silent for
+#: a while before the first event.
 STREAM_TIMEOUT = aiohttp.ClientTimeout(total=None, sock_connect=10, sock_read=300)
+#: Seconds allowed to open a speech to text or text to speech WebSocket, handshake
+#: included.
 WS_CONNECT_TIMEOUT = 10
-# How long a pre-opened TTS connection is kept waiting for the pipeline
+#: Seconds a pre-opened text to speech connection is kept waiting for the pipeline
+#: before it's closed.
 TTS_WARM_TTL = 20
 
 

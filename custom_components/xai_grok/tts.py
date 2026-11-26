@@ -32,11 +32,16 @@ from .const import (
 )
 from .entity import XaiBaseEntity
 
+#: No limit on concurrent requests to the entity (0): each synthesis is its own
+#: request or WebSocket to xAI, so they don't need to be serialized.
 PARALLEL_UPDATES = 0
 
+#: The TTS option that picks a voice for one request (a `voice_id`), overriding the
+#: voice chosen in the integration's options.
 ATTR_VOICE = "voice"
 
-# The model can stall on a slow tool call, during which no audio arrives
+#: Seconds to wait for each message from xAI on the text to speech WebSocket. Long,
+#: because the model can stall on a slow tool call, during which no audio arrives.
 RECEIVE_TIMEOUT = 60
 
 # Markdown the model may emit despite the prompt; it would be read out loud

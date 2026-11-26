@@ -13,6 +13,8 @@ from . import XaiConfigEntry
 from .const import IMAGE_MODEL, LOGGER
 from .entity import XaiLLMEntity
 
+#: No limit on concurrent requests to the entity (0): each task is its own request
+#: to xAI, so they don't need to be serialized.
 PARALLEL_UPDATES = 0
 
 
